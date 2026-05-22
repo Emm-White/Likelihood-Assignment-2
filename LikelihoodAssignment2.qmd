@@ -5,12 +5,14 @@ editor: visual
 ---
 
 ```{r}
+#| include: false
 library(readr)
 coffeetime <- read_csv("coffeetime.csv")
 View(coffeetime)
 ```
 
 ```{r}
+#| include: false
 library(cmdstanr)
 ```
 
@@ -148,7 +150,7 @@ L(\theta)
 \,d\lambda_i.
 $$
 
-## Q5
+## Question 5
 
 ```{r}
 mu <- mean(coffeetime$time)
@@ -156,17 +158,63 @@ sigma <- sd(coffeetime$time)
 
 alpha_prior <- mu^{2}/ sigma^{2}
 beta_pror <- mu/ sigma^2
+```
 
+It is expected that the average café waiting time will be around 4.4 minutes, with substantial variation between cafés, perhaps corresponding to a standard deviation of roughly 5 minutes. Matching these moments to a Gamma distribution gives approximate hyperparameter values of $\alpha \approx 0.78$ and $\beta \approx 0.18$.
+
+Therefore the following exponential priors are placed on the Gamma hyperparameters:
+
+$$
+\alpha \sim \text{Exponential}\left(\frac{1}{0.78}\right),
+\qquad
+\beta \sim \text{Exponential}\left(\frac{1}{0.18}\right).
+$$
+
+These priors are relatively weakly informative, while still centering the model around plausible waiting times and between-café variability.
+
+
+## Question 6
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+random_effects_stan <- "
+data {
+  int<lower=0> N;
+  vector<lower=0>[N] t;
+  int<lower=1> n_cafes;
+  array[N] int<lower=1, upper=n_cafes> cafe;
+}
+
+parameters {
+  real<lower=0> alpha;
+  real<lower=0> beta;
+  vector<lower=0>[n_cafes] lambda;
+}
+
+model {
+  alpha ~ exponential(1 / 0.7824712);
+  beta  ~ exponential(1 / 0.1764025);
+
+  lambda ~ gamma(alpha, beta);
+
+  for (k in 1:N) {
+    t[k] ~ exponential(1 / lambda[cafe[k]]);
+  }
+}
+"
+
+writeLines(random_effects_stan, "random_effects_model.stan")
+
+model <- cmdstan_model("random_effects_model.stan")
 
 ```
 
-I expect the average café waiting time to be around 4.4 minutes, with noticeable variation between cafés, perhaps with a standard deviation around 5 minutes. This corresponds to approximate Gamma hyperparameters α=0.78 and β=0.18. Therefore, I place exponential priors on α and β with these means.
-
 ```{r}
-model <- cmdstan_model("Likelihood2.stan")
-```
-
-```{r}
+#| echo: true
+#| message: false
+#| warning: false
 stan_data <- list(
   N = length(coffeetime$cafe),
   n_cafes = 15,
@@ -176,6 +224,10 @@ stan_data <- list(
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| 
 fit <- model$sample(
   data = stan_data,
   chains = 4,
@@ -195,9 +247,14 @@ sum[] <- lapply(sum, function(x) {
 kableExtra::kable(sum)
 ```
 
-The MCMC diagnostics suggest that the chains have mixed well. All R-hat values are very close to 1, with the largest approximately 1.004, which indicates no obvious lack of convergence. The effective sample sizes are also large for both the bulk and tail of the posterior distributions, suggesting that the posterior summaries are reliable. Therefore, there is no clear evidence of MCMC convergence problems.
+The MCMC diagnostics suggest that the random effects model has fitted successfully. The $\hat{R}$ values are close to 1, which suggests that the chains have mixed well and are sampling from the same posterior distribution. The effective sample sizes are also reasonably large, meaning that the posterior summaries should be reliable. There is therefore no obvious evidence of non-convergence or poor mixing.
+
+The posterior distribution of the café-specific expected waiting times shows that there is variation between cafés. This supports the use of a random effects model, since the model allows each café to have its own expected waiting time while still assuming that the cafés come from a common population distribution.
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
 
 hist(
   sum$mean[4:18],
@@ -212,7 +269,9 @@ hist(
 ```
 
 ```{r}
-library(posterior)
+#| echo: true
+#| message: false
+#| warning: false
 
 samples <- fit$draws(c("alpha", "beta"), format = "matrix")
 
@@ -230,7 +289,7 @@ hist(
 )
 ```
 
-## Q7
+## Question 7
 
 For the fixed effects model, we still allow the expected waiting time to differ by café, but we do not assume that the café-specific parameters are drawn from a shared Gamma distribution. Thus, there is no pooling of information between cafés.
 
@@ -247,10 +306,44 @@ I chose 4.4 because in the random effects model, I expected the average café wa
 ## Q8
 
 ```{r}
-library(tidyverse)
+#| echo: true
+#| message: false
+#| warning: false
 
-# Compile fixed effects model
-fixed_mod <- cmdstan_model("Q8Stan.stan")
+
+fixed_effects_stan <- "
+data {
+  int<lower=0> N;
+  vector<lower=0>[N] t;
+  int<lower=1> n_cafes;
+  array[N] int<lower=1, upper=n_cafes> cafe;
+}
+
+parameters {
+  vector<lower=0>[n_cafes] lambda;
+}
+
+model {
+  lambda ~ exponential(1 / 4.4);
+
+  for (k in 1:N) {
+    t[k] ~ exponential(1 / lambda[cafe[k]]);
+  }
+}
+"
+
+writeLines(fixed_effects_stan, "fixed_effects_model.stan")
+
+fixed_mod <- cmdstan_model("fixed_effects_model.stan")
+```
+
+
+```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+library(tidyverse)
 
 # Fit model
 fixed_fit <- fixed_mod$sample(
@@ -268,6 +361,11 @@ fixed_fit$summary()
 Checking MCMC for Q8
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+
+
 sum_fixed <- fixed_fit$summary()
 
 sum_fixed[] <- lapply(sum_fixed, function(x) {
@@ -277,7 +375,76 @@ sum_fixed[] <- lapply(sum_fixed, function(x) {
 kableExtra::kable(sum_fixed)
 ```
 
-The MCMC diagnostics suggest that the model converged well. All (\hat{R}) values are extremely close to 1, indicating good mixing and convergence across chains. In addition, both the bulk and tail effective sample sizes are large for all parameters, suggesting low autocorrelation and reliable estimation of posterior summaries and credible intervals. Therefore, there is no evidence of concerning convergence or sampling issues in the fitted model.
+The MCMC diagnostics suggest that the model converged well. All ($\hat{R}$) values are extremely close to 1, indicating good mixing and convergence across chains. In addition, both the bulk and tail effective sample sizes are large for all parameters, suggesting low autocorrelation and reliable estimation of posterior summaries and credible intervals. Therefore, there is no evidence of concerning convergence or sampling issues in the fitted model.
+
+
+## Q9
+
+
+```{r}
+
+#| echo: true
+#| message: false
+#| warning: false
+
+# Random effects sum
+rand_sum <- fit$summary()
+
+rand_cafe <- rand_sum |>
+  filter(str_detect(variable, "^lambda\\[")) |>
+  mutate(
+    cafe = as.numeric(str_extract(variable, "\\d+")),
+    model = "Random effects"
+  ) |>
+  select(cafe,model, median,q5,q95)
+
+# Fixed efects sum
+fixed_sum <- fixed_fit$summary()
+
+fixed_cafe <- fixed_sum |>
+  filter(str_detect(variable, "^lambda\\[")) |>
+  mutate(
+    cafe = as.numeric(str_extract(variable, "\\d+")),
+    model = "Fixed effects"
+  ) |>
+  select(cafe,model,median,q5,q95)
+
+# Posterior median of overall mean expect waiting time
+rand_draws <- fit$draws(c("alpha", "beta"), format = "df")
+
+mu_draws <- rand_draws$alpha / rand_draws$beta
+mu_median <- median(mu_draws)
+
+
+
+plot_data <- bind_rows(rand_cafe, fixed_cafe)
+
+ggplot(plot_data, aes(x = factor(cafe), y = median, colour = model)) +
+  geom_hline(
+    yintercept = mu_median,
+    linetype = "dashed",
+    colour = "black"
+  ) +
+  geom_pointrange(
+    aes(ymin = q5, ymax = q95),
+    position = position_dodge(width = 0.5)
+  ) +
+  labs(
+    x = "Café",
+    y = "Expected waiting time",
+    colour = "Model",
+    title = "Comparison of fixed effects and random effects estimates",
+    subtitle = "Posterior medians and 90% credible intervals"
+  ) +
+  theme_minimal()
+```
+
+The plot shows the general difference between the fixed effects and random effects models. The fixed effects model estimates each café separately, so its café-specific estimates are based mainly on the data from that café alone. As a result, the estimates can vary more strongly between cafés, especially for cafés with less data.
+
+The random effects model partially pools information across cafés. This means that café-specific estimates are pulled towards the overall mean expected waiting time. Therefore, cafés with unusually high or low fixed effects estimates tend to have less extreme estimates under the random effects model. The random effects credible intervals may also be narrower or more stable because the model borrows strength across cafés.
+
+The horizontal dashed line represents the posterior median of the overall mean expected waiting time from the random effects model. The random effects café estimates are generally shrunk towards this line, while the fixed effects estimates are allowed to move more freely away from it. This pattern is the main evidence of partial pooling in the random effects model.
+
 
 ## Q10
 
