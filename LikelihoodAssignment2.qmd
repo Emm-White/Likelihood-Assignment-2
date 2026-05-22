@@ -14,6 +14,140 @@ View(coffeetime)
 library(cmdstanr)
 ```
 
+## Question 1
+
+By conditional independence of the $T_i$ 's given $\lambda$,
+
+$$
+\pi(t \mid \lambda)
+=
+\prod_{i=1}^n \pi(t_i \mid \lambda_i).
+$$
+
+Also, since the $\lambda_i$ 's are iid given $\theta=(\alpha,\beta)$ ,
+
+$$
+\pi(\lambda \mid \theta)
+=
+\prod_{i=1}^n \pi(\lambda_i \mid \theta).
+$$
+
+Therefore,
+
+$$
+\pi(t \mid \lambda)\pi(\lambda \mid \theta)
+=
+\prod_{i=1}^n
+\pi(t_i \mid \lambda_i)\pi(\lambda_i \mid \theta).
+$$
+
+Each term in the product depends only on one $\lambda_i$ , so the integral factorises:
+
+$$
+L(\theta)
+=
+\int
+\prod_{i=1}^n
+\pi(t_i \mid \lambda_i)\pi(\lambda_i \mid \theta)
+\,d\lambda_1\cdots d\lambda_n
+$$
+
+$$
+=
+\prod_{i=1}^n
+\int_0^\infty
+\pi(t_i \mid \lambda_i)\pi(\lambda_i \mid \theta)
+\,d\lambda_i.
+$$
+
+## Question 3
+
+For repeated visits to café (i), the model is:
+
+$$
+T_{ij}\mid \lambda_i \sim \text{Exponential}(\lambda_i),
+\qquad j=1,\ldots,v_i,\quad i=1,\ldots,n.
+$$
+
+The café-specific expected waiting times are modelled as
+
+$$
+\lambda_i \overset{iid}{\sim} \text{Gamma}(\alpha,\beta),
+\qquad i=1,\ldots,n.
+$$
+
+Conditional on $\lambda_i$ , the waiting times from repeated visits to the same café are assumed independent.
+
+## Question 4
+
+Let $t_i=(t_{i1},\ldots,t_{iv_i})$ denote the waiting times observed at café (i).
+
+The likelihood is obtained by marginalising over the unobserved $\lambda_i$ 's:
+
+$$
+L(\theta)
+=
+\pi(t\mid \theta)
+=
+\int \pi(t\mid \lambda)\pi(\lambda\mid \theta)\,d\lambda.
+$$
+
+Given $\lambda$ , observations from different cafés are independent, so
+
+$$
+\pi(t\mid \lambda)
+=
+\prod_{i=1}^n \pi(t_i\mid \lambda_i).
+$$
+
+Within café (i), repeated visits are independent conditional on $\lambda_i$ , hence
+
+$$
+\pi(t_i\mid \lambda_i)
+=
+\prod_{j=1}^{v_i}\pi(t_{ij}\mid \lambda_i).
+$$
+
+As before, the $\lambda_i$ 's are iid, therefore:
+
+$$
+\pi(\lambda\mid \theta)
+=
+\prod_{i=1}^n \pi(\lambda_i\mid \theta).
+$$
+
+Therefore,
+
+$$
+L(\theta)
+=
+\int
+\prod_{i=1}^n
+\left[
+\left\{
+\prod_{j=1}^{v_i}
+\pi(t_{ij}\mid \lambda_i)
+\right\}
+\pi(\lambda_i\mid \theta)
+\right]
+d\lambda_1\cdots d\lambda_n.
+$$
+
+Since each bracketed term depends only on one $\lambda_i$ , the integral separates:
+
+$$
+L(\theta)
+=
+\prod_{i=1}^n
+\int_0^\infty
+\left[
+\prod_{j=1}^{v_i}
+\pi(t_{ij}\mid \lambda_i)
+\right]
+\pi(\lambda_i\mid \theta)
+\,d\lambda_i.
+$$
+
 ## Q5
 
 ```{r}
@@ -111,6 +245,7 @@ $\lambda_i \overset{ind}{\sim} \text{Exponential}(4.4) \qquad i=1,\ldots,n$
 I chose 4.4 because in the random effects model, I expected the average café waiting time to be around 4.4 minutes. However, unlike the random effects model, this fixed effects model does not estimate shared parameters such as $\alpha$ and $\beta$. Therefore the cafés are not linked through a common estimated population distribution and the posterior estimate of each $\lambda_i$ is informed only by the data from only café i and its own prior.
 
 ## Q8
+
 ```{r}
 library(tidyverse)
 
@@ -129,7 +264,9 @@ fixed_fit <- fixed_mod$sample(
 # Check summary
 fixed_fit$summary()
 ```
+
 Checking MCMC for Q8
+
 ```{r}
 sum_fixed <- fixed_fit$summary()
 
@@ -139,9 +276,11 @@ sum_fixed[] <- lapply(sum_fixed, function(x) {
 
 kableExtra::kable(sum_fixed)
 ```
-The MCMC diagnostics suggest that the model converged well. All \(\hat{R}\) values are extremely close to 1, indicating good mixing and convergence across chains. In addition, both the bulk and tail effective sample sizes are large for all parameters, suggesting low autocorrelation and reliable estimation of posterior summaries and credible intervals. Therefore, there is no evidence of concerning convergence or sampling issues in the fitted model.
+
+The MCMC diagnostics suggest that the model converged well. All (\hat{R}) values are extremely close to 1, indicating good mixing and convergence across chains. In addition, both the bulk and tail effective sample sizes are large for all parameters, suggesting low autocorrelation and reliable estimation of posterior summaries and credible intervals. Therefore, there is no evidence of concerning convergence or sampling issues in the fitted model.
 
 ## Q10
+
 In standard asymptotic theory, standard errors of parameter estimates typically shrink at a rate of $\frac{1}{\sqrt{n}}$ as the sample size increases. In this context, this means that the standard errors will initially decrease as we gain more information.
 
 However, the mean waiting time parameter is designed to describe the whole population of cafés, and continuously sampling from only one café does not provide sufficient information about the population as a whole. While repeated visits give increasingly precise information about Café Statistique itself, they provide little additional information about between-café variability. Therefore, the standard error for the population mean waiting time will decrease initially, but will not shrink to zero as n becomes very large, and will instead plateau.
