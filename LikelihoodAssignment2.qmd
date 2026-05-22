@@ -153,6 +153,10 @@ $$
 ## Question 5
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
+#| output: false
 mu <- mean(coffeetime$time)
 sigma <- sd(coffeetime$time)
 
@@ -172,13 +176,13 @@ $$
 
 These priors are relatively weakly informative, while still centering the model around plausible waiting times and between-café variability.
 
-
 ## Question 6
 
 ```{r}
 #| echo: true
 #| message: false
 #| warning: false
+#| output: false
 random_effects_stan <- "
 data {
   int<lower=0> N;
@@ -238,6 +242,9 @@ fit <- model$sample(
 ```
 
 ```{r}
+#| echo: true
+#| message: false
+#| warning: false
 sum <- fit$summary()
 
 sum[] <- lapply(sum, function(x) {
@@ -337,7 +344,6 @@ writeLines(fixed_effects_stan, "fixed_effects_model.stan")
 fixed_mod <- cmdstan_model("fixed_effects_model.stan")
 ```
 
-
 ```{r}
 #| echo: true
 #| message: false
@@ -361,7 +367,7 @@ fixed_fit$summary()
 Checking MCMC for Q8
 
 ```{r}
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
@@ -377,9 +383,7 @@ kableExtra::kable(sum_fixed)
 
 The MCMC diagnostics suggest that the model converged well. All ($\hat{R}$) values are extremely close to 1, indicating good mixing and convergence across chains. In addition, both the bulk and tail effective sample sizes are large for all parameters, suggesting low autocorrelation and reliable estimation of posterior summaries and credible intervals. Therefore, there is no evidence of concerning convergence or sampling issues in the fitted model.
 
-
 ## Q9
-
 
 ```{r}
 
@@ -444,7 +448,6 @@ The plot shows the general difference between the fixed effects and random effec
 The random effects model partially pools information across cafés. This means that café-specific estimates are pulled towards the overall mean expected waiting time. Therefore, cafés with unusually high or low fixed effects estimates tend to have less extreme estimates under the random effects model. The random effects credible intervals may also be narrower or more stable because the model borrows strength across cafés.
 
 The horizontal dashed line represents the posterior median of the overall mean expected waiting time from the random effects model. The random effects café estimates are generally shrunk towards this line, while the fixed effects estimates are allowed to move more freely away from it. This pattern is the main evidence of partial pooling in the random effects model.
-
 
 ## Q10
 
